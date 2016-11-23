@@ -54,7 +54,7 @@ namespace CortosoBank
             await this.customerTable.UpdateAsync(customer);
         }
 
-        public async Task DeleteCustomerDetail(Customer customer)
+        public async Task DeleteCustomer(Customer customer)
         {
             await this.customerTable.DeleteAsync(customer);
         }
@@ -146,7 +146,15 @@ namespace CortosoBank
             return "";
         }
 
+        public async Task<string> getUniqueAccountNo()
+        {
+            List<Customer> customerList = await this.GetCustomerList();
+            int numberOfCustomer = customerList.Count();
+            string newAccountNo = String.Format($"A{0}", numberOfCustomer+1);
+            return newAccountNo;
+        }
 
-      
+
+
     }
 }

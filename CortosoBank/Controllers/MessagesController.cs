@@ -20,7 +20,8 @@ namespace CortosoBank
         //Global values
         bool userLoggedIn = false;
         bool askUserToLogin = false;
-        bool createAccount; 
+        bool createAccount;
+        bool deleteAccount;
         string userAccountNo;
         string strEmailAndPassword;
         Customer clientDetails;
@@ -40,7 +41,7 @@ namespace CortosoBank
                 var userInput = activity.Text;
                 string replyToUser = "";
 
-                // ---  Store client information ---  Get any saved values
+                /// ---  Store client information ----------------
                 StateClient stateClient = activity.GetStateClient();
                 BotData userData = await stateClient.BotState.GetUserDataAsync(activity.ChannelId, activity.From.Id);
                 userLoggedIn = userData.GetProperty<bool>("userLoggedIn");
@@ -49,6 +50,7 @@ namespace CortosoBank
                 userAccountNo = userData.GetProperty<string>("userAccountNo") ?? "";
                 clientDetails = userData.GetProperty<Customer>("clientDetails") ?? new Customer();
                 createAccount = userData.GetProperty<bool>("createAccount");
+                deleteAccount = userData.GetProperty<bool>("deleteAccount");
                 newUserInformation = userData.GetProperty<List<object>>("newUserInformation") ?? new List<object>();
 
 
@@ -64,6 +66,7 @@ namespace CortosoBank
                     userData.SetProperty<List<object>>("newUserInformation", newUserInformation);
                     await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
                 }
+
 
 
                 /// --- Authenticate user and store information about the user ---------------------
@@ -93,7 +96,7 @@ namespace CortosoBank
                             /// --- Create An account ---------------------
                             if (userInput.ToLower().Equals("create account"))
                             {
-                                userInput = "Please enter .... ";
+                                
                                 newUserInformation = new List<object>();
                                 userData.SetProperty<bool>("createAccount", true);
                                 userData.SetProperty<List<object>>("newUserInformation", newUserInformation);
@@ -103,59 +106,78 @@ namespace CortosoBank
 
                             if (createAccount)
                             {
-                                replyToUser = "CREATE account";
-                                if (newUserInformation.Count < 7)
+                                // Get new user's account information
+                                int counter = newUserInformation.Count + 1;
+                                if (counter < 7)
                                 {
-                                    /*
-                                    if (newUserInformation.Count > 1)
-                                    {
-                                        newUserInformation.Add(userInput);
-                                        userData.SetProperty<List<object>>("newUserInformation", newUserInformation);
-                                        await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
-                                    }
-                                    */
-                                    replyToUser = $"Please enter {userInfo[newUserInformation.Count]}, {createAccount}, {newUserInformation.Count}";
+                                    replyToUser = $"({counter}/6): Please enter your {userInfo[counter]}";
                                     newUserInformation.Add(userInput);
                                     userData.SetProperty<List<object>>("newUserInformation", newUserInformation);
                                     await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
                                 }
                                 else
                                 {
-                                    replyToUser = "reset";
+                                    // User's all information are there. Now is to create account ! 
+                                    newUserInformation.Add(userInput);
+                                    userData.SetProperty<List<object>>("newUserInformation", newUserInformation);
+
+                                    // Get Unique AccountNo 
+                                    string newAccountNo = await AzureManager.AzureManagerInstance.getUniqueAccountNo();
+
+                                    Customer cust = new Customer();
+                                    cust.AccountNo = newAccountNo;
+                                    cust.Email = newUserInformation[1].ToString();
+                                    cust.Password = newUserInformation[2].ToString();
+                                    cust.FirstName = newUserInformation[3].ToString();
+                                    cust.LastName = newUserInformation[4].ToString();
+                                    cust.Age = Int32.Parse(newUserInformation[5].ToString());
+                                    cust.Balance = Double.Parse(newUserInformation[6].ToString());
+
+                                    replyToUser = $" Welcome to Cortoso Bank! Your account has been successfully created. Your accountNo is {newAccountNo} with the balance of ${cust.Balance}.";
+                                    string EmailAndAddress = $"{cust.Email},{cust.Password}";
+
+                                    await AzureManager.AzureManagerInstance.AddCustomer(cust);
+
+                                    createAccount = false;
+                                    userData.SetProperty<string>("strEmailAndPassword", EmailAndAddress);
+                                    userData.SetProperty<bool>("userLoggedIn", true);
+                                    userData.SetProperty<bool>("createAccount", false);
+                                    userData.SetProperty<string>("userAccountNo", newAccountNo);
+                                    userData.SetProperty<Customer>("clientDetails", cust);
+                                    userData.SetProperty<List<object>>("newUserInformation", new List<object>());
+                                    await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
                                 }
                           
-
                             }
                             else
                             {
-                                replyToUser = $"Invalid Email and Password. Please try again. For more information please type 'help'. To create an account, type 'create account'. {createAccount}";
+                                replyToUser = $"Invalid Email and Password. Please try again. For more information please type 'help'. To create an account, type 'create account'.";
                                 userData.SetProperty<bool>("askUserToLogin", false);
                                 await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
                             }
                           
                         }
                     }
+                    /*
                     else // User provided email and password
                     {
                         // Timeout !! 
                         replyToUser = $"You entered: {userInput}";
                     }
+                    */
                 }
                 else // user haven't logged in 
                 {
                     // ask user to log in 
-                   
                     replyToUser = $"Hello, I am Cortoso Bank Bot. Please log in using your email and password separate by comma. If you do not have an account, please type 'create account'.";
                     userData.SetProperty<bool>("askUserToLogin", true);
                     await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
                 }
 
 
-
-
-
-
-                /// -- Do stuff here -------------
+                /// 
+                /// -- User has log in successfully ! Now, what the user want -------------
+                /// 
                 if (userAccountNo != "" &  !userInput.ToLower().Equals("clear"))
                 {
                     /// Luis Intent 
@@ -218,11 +240,19 @@ namespace CortosoBank
                 }
 
 
-                /// --- Clear state  ---------------------
-                if (userInput.ToLower().Equals("clear"))
+
+                /// handle delete account. If user want to delete account, he or she must already log in first. 
+                if (userInput.ToLower().Equals("delete account"))
                 {
-                    replyToUser = "Your state has been cleared. ";
-                    await stateClient.BotState.DeleteStateForUserAsync(activity.ChannelId, activity.From.Id);
+                    await AzureManager.AzureManagerInstance.DeleteCustomer(clientDetails);
+
+                    userData.SetProperty<string>("strEmailAndPassword", "");
+                    userData.SetProperty<bool>("userLoggedIn", false);
+                    userData.SetProperty<string>("userAccountNo", "");
+                    userData.SetProperty<Customer>("clientDetails", new Customer());
+
+                    await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
+                    replyToUser = "Your account has been successfully deleted.";
                 }
 
 
@@ -232,6 +262,15 @@ namespace CortosoBank
                     replyToUser = "How can i help you?";
                     await Conversation.SendAsync(activity, () => new HelpDialog());
                 }
+
+
+                /// --- Clear state  ---------------------
+                if (userInput.ToLower().Equals("clear"))
+                {
+                    replyToUser = "Your state has been cleared. ";
+                    await stateClient.BotState.DeleteStateForUserAsync(activity.ChannelId, activity.From.Id);
+                }
+
 
 
                 // Create a reply message
