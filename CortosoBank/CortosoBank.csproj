@@ -138,6 +138,8 @@
     <Compile Include="AzureManager.cs" />
     <Compile Include="Controllers\MessagesController.cs" />
     <Compile Include="Dialog\HelpDialog.cs" />
+    <Compile Include="Dialog\IntroductionDialog.cs" />
+    <Compile Include="Dialog\TransactionDialog.cs" />
     <Compile Include="ExchangeRate.cs" />
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>

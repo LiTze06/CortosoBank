@@ -92,7 +92,6 @@ namespace CortosoBank
             return -1;  
         }
         
-       
 
         public async Task<Customer> getCustomerDetails(string accountNo)
         {
@@ -150,7 +149,8 @@ namespace CortosoBank
         {
             List<Customer> customerList = await this.GetCustomerList();
             int numberOfCustomer = customerList.Count();
-            string newAccountNo = String.Format($"A{0}", numberOfCustomer+1);
+            numberOfCustomer = numberOfCustomer + 1;
+            string newAccountNo = $"A00{numberOfCustomer}";
             return newAccountNo;
         }
 
