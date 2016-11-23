@@ -49,7 +49,6 @@ namespace CortosoBank
                 StateClient stateClient = activity.GetStateClient();
                 BotData userData = await stateClient.BotState.GetUserDataAsync(activity.ChannelId, activity.From.Id);
                 userLoggedIn = userData.GetProperty<bool>("userLoggedIn");
-                //askUserToLogin = userData.GetProperty<bool>("askUserToLogin");
                 userAccountNo = userData.GetProperty<string>("userAccountNo") ?? "";
                 clientDetails = userData.GetProperty<Customer>("clientDetails") ?? new Customer();
                 createAccount = userData.GetProperty<bool>("createAccount");
@@ -57,7 +56,33 @@ namespace CortosoBank
                 newUserInformation = userData.GetProperty<List<object>>("newUserInformation") ?? new List<object>();
                 loginInformation = userData.GetProperty<List<string>>("loginInformation") ?? new List<string>();
                 userLogin = userData.GetProperty<bool>("userLogin");
-                
+
+
+
+
+                /// --- Clear state  ---------------------
+                if (userInput.ToLower().Equals("clear"))
+                {
+                    replyToUser = "Your state has been cleared. ";
+                    userData.SetProperty<bool>("userLogin", false);
+                    userData.SetProperty<bool>("userLoggedIn", false);
+                    userData.SetProperty<bool>("createAccount", false);
+                    userData.SetProperty<bool>("deleteAccount", false);
+                    userData.SetProperty<string>("userAccountNo", "");
+                    userData.SetProperty<Customer>("clientDetails", new Customer());
+                    userData.SetProperty<List<object>>("newUserInformation", new List<object>());
+                    await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
+                    await stateClient.BotState.DeleteStateForUserAsync(activity.ChannelId, activity.From.Id);
+
+                    /// return 
+                    Activity replyMessage2 = activity.CreateReply(replyToUser);
+                    await connector.Conversations.ReplyToActivityAsync(replyMessage2);
+                    return Request.CreateResponse(HttpStatusCode.OK);
+
+                }
+
+
+
                 /// --- Create account ---------------------
                 if (userInput.ToLower().Equals("create account"))
                 {
@@ -116,10 +141,6 @@ namespace CortosoBank
                         userData.SetProperty<string>("userAccountNo", newAccountNo);
                         userData.SetProperty<Customer>("clientDetails", cust);
                         userData.SetProperty<List<object>>("newUserInformation", new List<object>());
-                        //userData.SetProperty<bool>("notSendGreeting", true);
-                        //sentGreeting = false;
-                        //userLoggedIn = true;
-
                         userData.SetProperty<Customer>("clientDetails", cust);
 
                         await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
@@ -128,7 +149,6 @@ namespace CortosoBank
                         Activity replyMessage2 = activity.CreateReply(replyToUser);
                         await connector.Conversations.ReplyToActivityAsync(replyMessage2);
                         return Request.CreateResponse(HttpStatusCode.OK);
-
 
                     }
                 }
@@ -140,8 +160,7 @@ namespace CortosoBank
                     replyToUser = "Please enter your email.";
                     userData.SetProperty<List<string>>("loginInformation", loginInformation);
                     userData.SetProperty<bool>("userLogin", true);
-                    //userData.SetProperty<bool>("notSendGreeting", true);
-                    //sentGreeting = false;
+                 
                     await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
                 }
 
@@ -154,8 +173,6 @@ namespace CortosoBank
                         replyToUser = "Please enter your password.";
                         // reset loginInformation
                         userData.SetProperty<List<string>>("loginInformation", loginInformation);
-                        //userData.SetProperty<bool>("notSendGreeting", true);
-                        //sentGreeting = false;
                         await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
                     }
 
@@ -183,9 +200,7 @@ namespace CortosoBank
                             userData.SetProperty<bool>("userLogin", false);
                             userData.SetProperty<List<string>>("loginInformation", new List<string>());
 
-                            //await Conversation.SendAsync(activity, () => new TransactionDialog());
-                            //userData.SetProperty<bool>("notSendGreeting", true);
-                            //sentGreeting = false;
+                            await Conversation.SendAsync(activity, () => new TransactionDialog());
                             await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
                         }
                         else
@@ -203,7 +218,7 @@ namespace CortosoBank
 
                 //// --- User haven't log in ---------------------------
 
-                if (!userLoggedIn && !userInput.ToLower().Equals("clear") && !userInput.ToLower().Equals("log in") && !userInput.ToLower().Equals("create account") && !userInput.ToLower().Equals("delete account"))
+                if (!createAccount && !userLogin && !userLoggedIn && !userInput.ToLower().Equals("clear") && !userInput.ToLower().Equals("log in") && !userInput.ToLower().Equals("create account") && !userInput.ToLower().Equals("delete account"))
                 {
                    
                     /// Luis Intent 
@@ -211,15 +226,83 @@ namespace CortosoBank
                     switch (luisIntentObject.topScoringIntent.intent)
                     {
                         case "getHelp":
-                            replyToUser = $"I am here to help {userLoggedIn}";
-                            await Conversation.SendAsync(activity, () => new IntroductionDialog());
+                            // ##  Introducting Page ##
+                            Activity replyToConversation = activity.CreateReply();
+                            replyToConversation.Recipient = activity.From;
+                            replyToConversation.Type = "message";
+                            replyToConversation.Attachments = new List<Attachment>();
+
+                            // CardButtons
+                            var actions = new List<CardAction>();
+                            for (int i = 0; i < options.Length; i++)
+                            {
+                                actions.Add(new CardAction
+                                {
+                                    Title = $"{options[i]}",
+                                    Value = $"{options[i]}",
+                                    Type = ActionTypes.ImBack
+                                });
+                            }
+
+                            // CardImage
+                            List<CardImage> cardImages = new List<CardImage>();
+                            cardImages.Add(new CardImage(url: "https://irp-cdn.multiscreensite.com/d0e68b97/dms3rep/multi/mobile/icon_002-300x300.png"));
+
+
+                            // Reply with thumbnail card
+                            replyToConversation.Attachments.Add(
+                                 new ThumbnailCard
+                                 {
+                                     Title = $"Welcome to Cortoso Bank",
+                                     Subtitle = "How can i help you?",
+                                     Images = cardImages,
+                                     Buttons = actions
+                                 }.ToAttachment()
+                            );
+                            await connector.Conversations.SendToConversationAsync(replyToConversation);
+                            return Request.CreateResponse(HttpStatusCode.OK);
                             break;
+
                         case "getCurrencyRate":
                             replyToUser = await GetCurrencyRate(userInput);
                             break;
-                        //default:
-                         //   await Conversation.SendAsync(activity, () => new IntroductionDialog());
-                           // break;
+
+                        case "None":
+                            // ##  Introducting Page ##
+                            Activity replyToConversation2 = activity.CreateReply();
+                            replyToConversation2.Recipient = activity.From;
+                            replyToConversation2.Type = "message";
+                            replyToConversation2.Attachments = new List<Attachment>();
+
+                            // CardButtons
+                            var actions2 = new List<CardAction>();
+                            for (int i = 0; i < options.Length; i++)
+                            {
+                                actions2.Add(new CardAction
+                                {
+                                    Title = $"{options[i]}",
+                                    Value = $"{options[i]}",
+                                    Type = ActionTypes.ImBack
+                                });
+                            }
+
+                            // CardImage
+                            List<CardImage> cardImages2 = new List<CardImage>();
+                            cardImages2.Add(new CardImage(url: "https://irp-cdn.multiscreensite.com/d0e68b97/dms3rep/multi/mobile/icon_002-300x300.png"));
+
+
+                            // Reply with thumbnail card
+                            replyToConversation2.Attachments.Add(
+                                 new ThumbnailCard
+                                 {
+                                     Title = $"Welcome to Cortoso Bank",
+                                     Subtitle = "How can i help you?",
+                                     Images = cardImages2,
+                                     Buttons = actions2
+                                 }.ToAttachment()
+                            );
+                            await connector.Conversations.SendToConversationAsync(replyToConversation2);
+                            return Request.CreateResponse(HttpStatusCode.OK);
                     }
 
                     
@@ -313,17 +396,6 @@ namespace CortosoBank
 
 
 
-                /// --- Clear state  ---------------------
-                if (userInput.ToLower().Equals("clear"))
-                {
-                    replyToUser = "Your state has been cleared. ";
-                    userData.SetProperty<bool>("userLoggedIn", false);
-                    userData.SetProperty<List<string>>("loginInformation", loginInformation);
-                    userData.SetProperty<bool>("userLogin", false);
-                    await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
-                    await stateClient.BotState.DeleteStateForUserAsync(activity.ChannelId, activity.From.Id);
-
-                }
 
                 /// --- Create a reply message ----------------
                 Activity replyMessage = activity.CreateReply(replyToUser);
