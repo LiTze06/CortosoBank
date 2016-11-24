@@ -58,7 +58,7 @@ namespace CortosoBank
               
 
 
-                /// --- Clear state  ---------------------
+                /// --- Clear state  ----------------------
                 if (userInput.ToLower().Equals("clear") || userInput.ToLower().Equals("log out"))
                 {
                     replyToUser = "Your states have been cleared.";
@@ -173,8 +173,7 @@ namespace CortosoBank
                         userData.SetProperty<string>("userAccountNo", newAccountNo);
                         userData.SetProperty<Customer>("clientDetails", cust);
                         userData.SetProperty<List<object>>("newUserInformation", newUserInformation);
-                        await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
-
+                        
                         // ##  Account created page ##
                         Activity replyToConversation = activity.CreateReply(replyToUser);
                         replyToConversation.Recipient = activity.From;
@@ -207,7 +206,6 @@ namespace CortosoBank
                 if (userInput.ToLower().Equals("log in"))
                 {
                     replyToUser = "Please enter your email.";
-                    //userData.SetProperty<List<string>>("loginInformation", loginInformation);
                     userData.SetProperty<bool>("userLogin", true);
                     await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
                     /// return 
@@ -240,14 +238,12 @@ namespace CortosoBank
 
                         // Authenticate user 
                         bool validEmailAndPassword = await AzureManager.AzureManagerInstance.AuthenticateCustomer(userEmail, userPassword);
-
                         if (validEmailAndPassword) // authenticate successfully
                         {
                             // get user data; 
                             string accountNo = await AzureManager.AzureManagerInstance.getAccountNo(userEmail, userPassword);
                             Customer cust = await AzureManager.AzureManagerInstance.getCustomerDetails(accountNo);
 
-                            
                             userData.SetProperty<string>("userAccountNo", accountNo);
                             userData.SetProperty<Customer>("clientDetails", cust);
                             userData.SetProperty<bool>("userLoggedIn", true);
@@ -277,7 +273,6 @@ namespace CortosoBank
                                      Images = cardImages
                                  }.ToAttachment()
                             );
-                            await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
                             await connector.Conversations.SendToConversationAsync(replyToConversation);
                             return Request.CreateResponse(HttpStatusCode.OK);
 
