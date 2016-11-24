@@ -18,13 +18,13 @@ namespace CortosoBank
     public class MessagesController : ApiController
     {
         //Global values
-        bool userLoggedIn = false;
-        bool userLogin = false;
+        bool userLoggedIn;
+        bool userLogin;
         bool createAccount;
         bool deleteAccount;
         string userAccountNo;
-        List<string> loginInformation;
         Customer clientDetails;
+        List<string> loginInformation;
         List<object> newUserInformation;
 
         List<string> userInfo = new List<string> { "Email", "Password", "FirstName", "LastName", "Age", "Balance" };
@@ -49,15 +49,14 @@ namespace CortosoBank
                 StateClient stateClient = activity.GetStateClient();
                 BotData userData = await stateClient.BotState.GetUserDataAsync(activity.ChannelId, activity.From.Id);
                 userLoggedIn = userData.GetProperty<bool>("userLoggedIn");
-                userAccountNo = userData.GetProperty<string>("userAccountNo") ?? "";
-                clientDetails = userData.GetProperty<Customer>("clientDetails") ?? new Customer();
+                userLogin = userData.GetProperty<bool>("userLogin");
                 createAccount = userData.GetProperty<bool>("createAccount");
                 deleteAccount = userData.GetProperty<bool>("deleteAccount");
+                userAccountNo = userData.GetProperty<string>("userAccountNo") ?? "";
+                clientDetails = userData.GetProperty<Customer>("clientDetails") ?? new Customer();
                 newUserInformation = userData.GetProperty<List<object>>("newUserInformation") ?? new List<object>();
                 loginInformation = userData.GetProperty<List<string>>("loginInformation") ?? new List<string>();
-                userLogin = userData.GetProperty<bool>("userLogin");
-
-
+              
 
 
                 /// --- Clear state  ---------------------
@@ -71,6 +70,7 @@ namespace CortosoBank
                     userData.SetProperty<string>("userAccountNo", "");
                     userData.SetProperty<Customer>("clientDetails", new Customer());
                     userData.SetProperty<List<object>>("newUserInformation", new List<object>());
+                    userData.SetProperty<List<string>>("loginInformation", new List<string>());
                     await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
                     await stateClient.BotState.DeleteStateForUserAsync(activity.ChannelId, activity.From.Id);
 
@@ -82,17 +82,19 @@ namespace CortosoBank
                 }
 
 
-
                 /// --- Create account ---------------------
                 if (userInput.ToLower().Equals("create account"))
                 {
-                    userData.SetProperty<bool>("createAccount", true);
-                    userData.SetProperty<List<object>>("newUserInformation", new List<object>());
-                    userData.SetProperty<bool>("notSendGreeting", true);
-                    
                     int counter = newUserInformation.Count;
                     replyToUser = $"({counter + 1}/6): Please enter your {userInfo[counter]}"; // prompt for email
+                    userData.SetProperty<bool>("createAccount", true);
                     await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
+                    
+                    /// return 
+                    Activity replyMessage2 = activity.CreateReply(replyToUser);
+                    await connector.Conversations.ReplyToActivityAsync(replyMessage2);
+                    return Request.CreateResponse(HttpStatusCode.OK);
+
                 }
 
 
@@ -104,17 +106,21 @@ namespace CortosoBank
                     {
                         newUserInformation.Add(userInput);
                         userData.SetProperty<List<object>>("newUserInformation", newUserInformation);
-                        // userData.SetProperty<bool>("notSendGreeting", true);
-                        //sentGreeting = false;
                         await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
                         replyToUser = $"({counter + 1}/6): Please enter your {userInfo[counter]}";
+
+                        /// return 
+                        Activity replyMessage2 = activity.CreateReply(replyToUser);
+                        await connector.Conversations.ReplyToActivityAsync(replyMessage2);
+                        return Request.CreateResponse(HttpStatusCode.OK);
+
                     }
 
                     if (counter == 6)
                     {
                         // User's all information are there. Now is to create account ! 
                         newUserInformation.Add(userInput);
-                        userData.SetProperty<List<object>>("newUserInformation", newUserInformation);
+                       
 
                         // Get Unique AccountNo 
                         string newAccountNo = await AzureManager.AzureManagerInstance.getUniqueAccountNo();
@@ -128,22 +134,19 @@ namespace CortosoBank
                         cust.Age = Int32.Parse(newUserInformation[4].ToString());
                         cust.Balance = Double.Parse(newUserInformation[5].ToString());
 
-                        string EmailAndAddress = $"{cust.Email},{cust.Password}";
 
                         await AzureManager.AzureManagerInstance.AddCustomer(cust);
                         replyToUser = $" Welcome to Cortoso Bank! Your account has been successfully created. Your accountNo is {newAccountNo} with the balance of ${cust.Balance}.";
-                        await Conversation.SendAsync(activity, () => new TransactionDialog());
-
+                        
                         createAccount = false;
-                        userData.SetProperty<string>("strEmailAndPassword", EmailAndAddress);
                         userData.SetProperty<bool>("userLoggedIn", true);
                         userData.SetProperty<bool>("createAccount", false);
                         userData.SetProperty<string>("userAccountNo", newAccountNo);
                         userData.SetProperty<Customer>("clientDetails", cust);
-                        userData.SetProperty<List<object>>("newUserInformation", new List<object>());
-                        userData.SetProperty<Customer>("clientDetails", cust);
-
+                        userData.SetProperty<List<object>>("newUserInformation", newUserInformation);
                         await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
+
+                        await Conversation.SendAsync(activity, () => new TransactionDialog());
 
                         /// return 
                         Activity replyMessage2 = activity.CreateReply(replyToUser);
@@ -158,10 +161,13 @@ namespace CortosoBank
                 if (userInput.ToLower().Equals("log in"))
                 {
                     replyToUser = "Please enter your email.";
-                    userData.SetProperty<List<string>>("loginInformation", loginInformation);
+                    //userData.SetProperty<List<string>>("loginInformation", loginInformation);
                     userData.SetProperty<bool>("userLogin", true);
-                 
                     await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
+                    /// return 
+                    Activity replyMessage2 = activity.CreateReply(replyToUser);
+                    await connector.Conversations.ReplyToActivityAsync(replyMessage2);
+                    return Request.CreateResponse(HttpStatusCode.OK);
                 }
 
                 if (userLogin)
@@ -171,9 +177,12 @@ namespace CortosoBank
                     {
                         loginInformation.Add(userInput); // this is to store email. 
                         replyToUser = "Please enter your password.";
-                        // reset loginInformation
                         userData.SetProperty<List<string>>("loginInformation", loginInformation);
                         await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
+                        /// return 
+                        Activity replyMessage2 = activity.CreateReply(replyToUser);
+                        await connector.Conversations.ReplyToActivityAsync(replyMessage2);
+                        return Request.CreateResponse(HttpStatusCode.OK);
                     }
 
                     if (counter == 1)
@@ -181,7 +190,7 @@ namespace CortosoBank
                         loginInformation.Add(userInput); // this is to store password. 
 
                         string userEmail = loginInformation[0].ToString();
-                        string userPassword = loginInformation[1].ToString();
+                        string userPassword = userInput; //loginInformation[1].ToString();
 
                         // Authenticate user 
                         bool validEmailAndPassword = await AzureManager.AzureManagerInstance.AuthenticateCustomer(userEmail, userPassword);
@@ -192,16 +201,21 @@ namespace CortosoBank
                             string accountNo = await AzureManager.AzureManagerInstance.getAccountNo(userEmail, userPassword);
                             Customer cust = await AzureManager.AzureManagerInstance.getCustomerDetails(accountNo);
 
-                            replyToUser = $"Log in successfully. Hi {cust.FirstName}!";
+                            replyToUser = $"Log in successfully. Hi {cust.FirstName} {cust.LastName}!";
 
                             userData.SetProperty<string>("userAccountNo", accountNo);
                             userData.SetProperty<Customer>("clientDetails", cust);
                             userData.SetProperty<bool>("userLoggedIn", true);
                             userData.SetProperty<bool>("userLogin", false);
                             userData.SetProperty<List<string>>("loginInformation", new List<string>());
-
-                            await Conversation.SendAsync(activity, () => new TransactionDialog());
                             await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
+                            await Conversation.SendAsync(activity, () => new TransactionDialog());
+                            
+                            /// return 
+                            Activity replyMessage2 = activity.CreateReply(replyToUser);
+                            await connector.Conversations.ReplyToActivityAsync(replyMessage2);
+                            return Request.CreateResponse(HttpStatusCode.OK);
+
                         }
                         else
                         {
@@ -210,17 +224,23 @@ namespace CortosoBank
                             userData.SetProperty<bool>("userLogin", false);
                             userData.SetProperty<List<string>>("loginInformation", new List<string>());
                             await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
+                            /// return 
+                            Activity replyMessage2 = activity.CreateReply(replyToUser);
+                            await connector.Conversations.ReplyToActivityAsync(replyMessage2);
+                            return Request.CreateResponse(HttpStatusCode.OK);
                         }
                     }
 
                 }
 
 
+
+
                 //// --- User haven't log in ---------------------------
 
-                if (!createAccount && !userLogin && !userLoggedIn && !userInput.ToLower().Equals("clear") && !userInput.ToLower().Equals("log in") && !userInput.ToLower().Equals("create account") && !userInput.ToLower().Equals("delete account"))
+                if (!createAccount && !userLogin && !userLoggedIn && !userInput.ToLower().Equals("log in") && !userInput.ToLower().Equals("create account") && !userInput.ToLower().Equals("delete account"))
                 {
-                   
+
                     /// Luis Intent 
                     LuisIntentObject luisIntentObject = await GetEntityFromLUIS(userInput);
                     switch (luisIntentObject.topScoringIntent.intent)
@@ -259,10 +279,10 @@ namespace CortosoBank
                                      Buttons = actions
                                  }.ToAttachment()
                             );
+                            await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
                             await connector.Conversations.SendToConversationAsync(replyToConversation);
                             return Request.CreateResponse(HttpStatusCode.OK);
-                            break;
-
+                       
                         case "getCurrencyRate":
                             replyToUser = await GetCurrencyRate(userInput);
                             break;
@@ -301,12 +321,14 @@ namespace CortosoBank
                                      Buttons = actions2
                                  }.ToAttachment()
                             );
+                            await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
                             await connector.Conversations.SendToConversationAsync(replyToConversation2);
                             return Request.CreateResponse(HttpStatusCode.OK);
                     }
 
-                    
+
                 }
+
 
 
                 /// handle delete account. If user want to delete account, he or she must already log in first. 
@@ -315,12 +337,20 @@ namespace CortosoBank
                     await AzureManager.AzureManagerInstance.DeleteCustomer(clientDetails);
 
                     userData.SetProperty<bool>("userLoggedIn", false);
-                    replyToUser = "Your account has been successfully deleted.";
-                    userAccountNo = "";
+                    userData.SetProperty<bool>("userLoggedIn", false);
+                    userData.SetProperty<bool>("createAccount", false);
+                    userData.SetProperty<bool>("deleteAccount", false);
+                    userData.SetProperty<string>("userAccountNo", "");
+                    userData.SetProperty<Customer>("clientDetails", new Customer());
+                    userData.SetProperty<List<object>>("newUserInformation", new List<object>());
+                    userData.SetProperty<List<string>>("loginInformation", new List<string>());
+                    await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
 
-                    Activity replyMessage2 = activity.CreateReply(replyToUser);
-                    await connector.Conversations.ReplyToActivityAsync(replyMessage2);
-                    await stateClient.BotState.DeleteStateForUserAsync(activity.ChannelId, activity.From.Id);
+                    replyToUser = "Your account has been successfully deleted.";
+                   
+                    // return
+                    Activity replyDelMessage = activity.CreateReply(replyToUser);
+                    await connector.Conversations.ReplyToActivityAsync(replyDelMessage);
                     return Request.CreateResponse(HttpStatusCode.OK);
                 }
 
@@ -329,7 +359,7 @@ namespace CortosoBank
                 /// --- User logged in ---------------------------
                 if (userLoggedIn & !userInput.ToLower().Equals("clear"))
                 {
-                 
+
                     /// Luis Intent 
                     LuisIntentObject luisIntentObject = await GetEntityFromLUIS(userInput);
                     switch (luisIntentObject.topScoringIntent.intent)
@@ -341,8 +371,12 @@ namespace CortosoBank
 
                         case "getHelp":
                             await Conversation.SendAsync(activity, () => new TransactionDialog());
-                            replyToUser = $"USER :I am here to help {userLoggedIn}";
+                            replyToUser = "Don't worry. I am here to help you";
+                            Activity replyMessage2 = activity.CreateReply(replyToUser);
+                            await connector.Conversations.ReplyToActivityAsync(replyMessage2);
+                            await stateClient.BotState.DeleteStateForUserAsync(activity.ChannelId, activity.From.Id);
                             return Request.CreateResponse(HttpStatusCode.OK);
+                            
 
                         case "withdraw":
                             bool WithDrawSuccess = await Withdraw(clientDetails, userInput);
@@ -352,13 +386,21 @@ namespace CortosoBank
                                     userData.SetProperty<Customer>("clientDetails", clientDetails);
                                     await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
                                     replyToUser = $"Withdraw successfully. Your new balance is ${string.Format("{0:0.00}", clientDetails.Balance)}";
-                                    break;
+
+                                    // return
+                                    Activity replywithdrawMessage = activity.CreateReply(replyToUser);
+                                    await connector.Conversations.ReplyToActivityAsync(replywithdrawMessage);
+                                    return Request.CreateResponse(HttpStatusCode.OK);
+
                                 default:
                                     replyToUser = "Do you want to withdraw money? If yes please type 'withdraw amount'";
-                                    break;
-                            }
-                            break;
 
+                                    // return
+                                    Activity replyConfirmWithdrawMessage = activity.CreateReply(replyToUser);
+                                    await connector.Conversations.ReplyToActivityAsync(replyConfirmWithdrawMessage);
+                                    return Request.CreateResponse(HttpStatusCode.OK);
+                            }
+                          
                         case "deposit":
                             bool DepositSuccess = await Deposit(clientDetails, userInput);
                             switch (DepositSuccess)
@@ -367,18 +409,30 @@ namespace CortosoBank
                                     userData.SetProperty<Customer>("clientDetails", clientDetails);
                                     await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
                                     replyToUser = $"Deposited Successfully. Your new balance is ${string.Format("{0:0.00}", clientDetails.Balance)}";
-                                    break;
+
+                                    // return
+                                    Activity replyDepositMessage = activity.CreateReply(replyToUser);
+                                    await connector.Conversations.ReplyToActivityAsync(replyDepositMessage);
+                                    return Request.CreateResponse(HttpStatusCode.OK);
+                                    
                                 default:
                                     replyToUser = "Do you want to deposit money? If yes please type 'deposit amount'";
-                                    break;
+                                    // return
+                                    Activity replywithNullIntentMessage = activity.CreateReply(replyToUser);
+                                    await connector.Conversations.ReplyToActivityAsync(replywithNullIntentMessage);
+                                    
+                                    return Request.CreateResponse(HttpStatusCode.OK);
+                                    
                             }
-                            break;
+                            
                         case "getCurrencyRate":
                             replyToUser = await GetCurrencyRate(userInput);
                             break;
+
                         case "transfer":
                             replyToUser = "transfer";
                             break;
+
                         default:
                             if (userInput.ToLower().Contains("convert"))
                             {
@@ -387,13 +441,17 @@ namespace CortosoBank
                             else
                             {
                                 await Conversation.SendAsync(activity, () => new TransactionDialog());
-                                replyToUser = $"Sorry, i am not getting you. Please type 'help' for more information. {userLoggedIn}";
+                                replyToUser = $"Sorry, i am not getting you...";
+                                
+                                // return
+                                Activity replyMessage3 = activity.CreateReply(replyToUser);
+                                await connector.Conversations.ReplyToActivityAsync(replyMessage3);
+                                return Request.CreateResponse(HttpStatusCode.OK);
                             }
                             break;
                     }
 
                 }
-
 
 
 
@@ -410,11 +468,6 @@ namespace CortosoBank
             var response = Request.CreateResponse(HttpStatusCode.OK);
             return response;
         }
-
-
-
-
-
 
 
 
