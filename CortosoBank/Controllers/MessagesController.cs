@@ -29,7 +29,7 @@ namespace CortosoBank
 
         List<string> userInfo = new List<string> { "Email", "Password", "FirstName", "LastName", "Age", "Balance" };
         public string[] options = new string[] { "Create Account", "Log In" };
-        public string[] transactionOptions = new string[] { "withdraw", "deposit", "balance", "currency", "delete account" };
+        public string[] transactionOptions = new string[] { "withdraw", "deposit", "balance", "currency", "delete account" , "log out" };
 
 
         /// <summary>
@@ -60,7 +60,7 @@ namespace CortosoBank
 
 
                 /// --- Clear state  ---------------------
-                if (userInput.ToLower().Equals("clear"))
+                if (userInput.ToLower().Equals("clear") || userInput.ToLower().Equals("log out"))
                 {
                     replyToUser = "Your state has been cleared. ";
                     userData.SetProperty<bool>("userLogin", false);
@@ -121,7 +121,6 @@ namespace CortosoBank
                         // User's all information are there. Now is to create account ! 
                         newUserInformation.Add(userInput);
                        
-
                         // Get Unique AccountNo 
                         string newAccountNo = await AzureManager.AzureManagerInstance.getUniqueAccountNo();
 
@@ -133,7 +132,6 @@ namespace CortosoBank
                         cust.LastName = newUserInformation[3].ToString();
                         cust.Age = Int32.Parse(newUserInformation[4].ToString());
                         cust.Balance = Double.Parse(newUserInformation[5].ToString());
-
 
                         await AzureManager.AzureManagerInstance.AddCustomer(cust);
                         replyToUser = $" Welcome to Cortoso Bank! Your account has been successfully created. Your accountNo is {newAccountNo} with the balance of ${cust.Balance}.";
@@ -282,10 +280,26 @@ namespace CortosoBank
                             await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
                             await connector.Conversations.SendToConversationAsync(replyToConversation);
                             return Request.CreateResponse(HttpStatusCode.OK);
-                       
+
                         case "getCurrencyRate":
-                            replyToUser = await GetCurrencyRate(userInput);
-                            break;
+                            bool validCountryCode = CheckCountryCode(userInput);
+                            switch (validCountryCode)
+                            {
+                                case true:
+                                    replyToUser = await GetCurrencyRate(userInput);
+
+                                    // return
+                                    Activity replywithCurrencyMessage = activity.CreateReply(replyToUser);
+                                    await connector.Conversations.ReplyToActivityAsync(replywithCurrencyMessage);
+                                    return Request.CreateResponse(HttpStatusCode.OK);
+
+                                default:
+                                    replyToUser = "Do you want to check currency rate? If yes please enter 'convert country code to country code'.";
+                                    // return
+                                    Activity replywithNullIntentMessage = activity.CreateReply(replyToUser);
+                                    await connector.Conversations.ReplyToActivityAsync(replywithNullIntentMessage);
+                                    return Request.CreateResponse(HttpStatusCode.OK);
+                            }
 
                         case "None":
                             // ##  Introducting Page ##
@@ -374,10 +388,8 @@ namespace CortosoBank
                             replyToUser = "Don't worry. I am here to help you";
                             Activity replyMessage2 = activity.CreateReply(replyToUser);
                             await connector.Conversations.ReplyToActivityAsync(replyMessage2);
-                            await stateClient.BotState.DeleteStateForUserAsync(activity.ChannelId, activity.From.Id);
                             return Request.CreateResponse(HttpStatusCode.OK);
                             
-
                         case "withdraw":
                             bool WithDrawSuccess = await Withdraw(clientDetails, userInput);
                             switch (WithDrawSuccess)
@@ -420,35 +432,42 @@ namespace CortosoBank
                                     // return
                                     Activity replywithNullIntentMessage = activity.CreateReply(replyToUser);
                                     await connector.Conversations.ReplyToActivityAsync(replywithNullIntentMessage);
-                                    
                                     return Request.CreateResponse(HttpStatusCode.OK);
                                     
                             }
                             
                         case "getCurrencyRate":
-                            replyToUser = await GetCurrencyRate(userInput);
-                            break;
+                            bool validCountryCode = CheckCountryCode(userInput);
+                            switch (validCountryCode)
+                            {
+                                case true:
+                                    replyToUser = await GetCurrencyRate(userInput);
+
+                                    // return
+                                    Activity replywithCurrencyMessage = activity.CreateReply(replyToUser);
+                                    await connector.Conversations.ReplyToActivityAsync(replywithCurrencyMessage);
+                                    return Request.CreateResponse(HttpStatusCode.OK);
+
+                                default:
+                                    replyToUser = "Do you want to check currency rate? If yes please enter 'convert country code to country code'.";
+                                    // return
+                                    Activity replywithNullIntentMessage = activity.CreateReply(replyToUser);
+                                    await connector.Conversations.ReplyToActivityAsync(replywithNullIntentMessage);
+                                    return Request.CreateResponse(HttpStatusCode.OK);
+                            }
 
                         case "transfer":
                             replyToUser = "transfer";
                             break;
 
                         default:
-                            if (userInput.ToLower().Contains("convert"))
-                            {
-                                replyToUser = await GetCurrencyRate(userInput);
-                            }
-                            else
-                            {
-                                await Conversation.SendAsync(activity, () => new TransactionDialog());
-                                replyToUser = $"Sorry, i am not getting you...";
-                                
-                                // return
-                                Activity replyMessage3 = activity.CreateReply(replyToUser);
-                                await connector.Conversations.ReplyToActivityAsync(replyMessage3);
-                                return Request.CreateResponse(HttpStatusCode.OK);
-                            }
-                            break;
+                             await Conversation.SendAsync(activity, () => new TransactionDialog());
+                             replyToUser = $"Sorry, i am not getting you...";
+                             // return
+                             Activity replyMessage3 = activity.CreateReply(replyToUser);
+                             await connector.Conversations.ReplyToActivityAsync(replyMessage3);
+                             return Request.CreateResponse(HttpStatusCode.OK);
+                           
                     }
 
                 }
@@ -541,6 +560,33 @@ namespace CortosoBank
         }
 
 
+
+        /// <summary>
+        /// check country codes
+        /// </summary>
+        /// <param name="userInput"></param>  // example convert nzd to aud 
+        /// <returns></returns>
+        private bool CheckCountryCode(string userInput)
+        {
+
+            List<string> codes = new List<string> { "AUD", "BGN", "BRL", "CAD", "CHF", "CNY", "CZK", "DKK", "EUR", "GBP", "HKD",
+                                                    "HRK", "HUF", "IDR", "ILS", "INR", "JPY", "KRW", "MXN", "MYR", "NOK", "NZD",
+                                                    "PHP", "PLN", "RON", "RUB", "SEK", "SGD", "THB", "TRY", "USD", "ZAR" };
+            var result = userInput.Split(' ');
+          
+            if (result.Length == 4)
+            {
+                bool firstString = result[0].ToLower().Equals("convert");
+                bool secondString = codes.Contains(result[1].ToUpper());
+                bool thirdString = result[2].ToLower().Equals("to");
+                bool fourthString = codes.Contains(result[3].ToUpper());
+                return firstString & secondString & thirdString & fourthString;
+            }
+
+            return false;
+        }
+
+
         /// <summary>
         /// get currency rate using Fixer's API
         /// </summary>
@@ -550,8 +596,10 @@ namespace CortosoBank
         {
             HttpClient client = new HttpClient();
             string currencyURL = "http://api.fixer.io/latest";
-            string fromCurrency = userInput.Substring(8, 3);
-            string toCurrency = userInput.Substring(15, 3).ToUpper();
+            var result = userInput.Split(' ');
+
+            string fromCurrency = result[1].ToUpper();
+            string toCurrency = result[3].ToUpper();
             string currencyResponse = await client.GetStringAsync(new Uri(currencyURL + "?base=" + fromCurrency));
 
             //deserialize 
@@ -577,7 +625,6 @@ namespace CortosoBank
         /// <returns>LuisIntentObject</returns>
         private static async Task<LuisIntentObject> GetEntityFromLUIS(string userInput)
         {
-
             string Query = Uri.EscapeDataString(userInput);
             LuisIntentObject luisObject = new LuisIntentObject();
 

@@ -137,7 +137,6 @@
     <Compile Include="App_Start\WebApiConfig.cs" />
     <Compile Include="AzureManager.cs" />
     <Compile Include="Controllers\MessagesController.cs" />
-    <Compile Include="Dialog\HelpDialog.cs" />
     <Compile Include="Dialog\IntroductionDialog.cs" />
     <Compile Include="Dialog\TransactionDialog.cs" />
     <Compile Include="ExchangeRate.cs" />
