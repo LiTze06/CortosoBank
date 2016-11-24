@@ -28,9 +28,8 @@ namespace CortosoBank
         List<object> newUserInformation;
 
         List<string> userInfo = new List<string> { "Email", "Password", "FirstName", "LastName", "Age", "Balance" };
-        public string[] options = new string[] { "Create Account", "Log In" };
-        public string[] transactionOptions = new string[] { "withdraw", "deposit", "balance", "currency", "delete account" , "log out" };
-
+        public string[] options = new string[] { "Create Account", "Log In", "Currency" };
+        public string[] transactionOptions = new string[] { "withdraw", "deposit", "balance", "currency", "delete account", "log out" };
 
         /// <summary>
         /// POST: api/Messages
@@ -42,7 +41,7 @@ namespace CortosoBank
             {
                 ConnectorClient connector = new ConnectorClient(new Uri(activity.ServiceUrl));
                 var userInput = activity.Text;
-                string replyToUser = $"Welcome to Cortoso Bank";
+                string replyToUser = $"Cortoso Bank";
 
 
                 /// ---  Store client information ----------------
@@ -62,7 +61,7 @@ namespace CortosoBank
                 /// --- Clear state  ---------------------
                 if (userInput.ToLower().Equals("clear") || userInput.ToLower().Equals("log out"))
                 {
-                    replyToUser = "Your state has been cleared. ";
+                    replyToUser = "Your states have been cleared.";
                     userData.SetProperty<bool>("userLogin", false);
                     userData.SetProperty<bool>("userLoggedIn", false);
                     userData.SetProperty<bool>("createAccount", false);
@@ -74,9 +73,40 @@ namespace CortosoBank
                     await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
                     await stateClient.BotState.DeleteStateForUserAsync(activity.ChannelId, activity.From.Id);
 
-                    /// return 
-                    Activity replyMessage2 = activity.CreateReply(replyToUser);
-                    await connector.Conversations.ReplyToActivityAsync(replyMessage2);
+                    // ##  Introduction Page ##
+                    Activity replyToConversation = activity.CreateReply(replyToUser);
+                    replyToConversation.Recipient = activity.From;
+                    replyToConversation.Type = "message";
+                    replyToConversation.Attachments = new List<Attachment>();
+
+                    // CardButtons
+                    var actions = new List<CardAction>();
+                    for (int i = 0; i < options.Length; i++)
+                    {
+                        actions.Add(new CardAction
+                        {
+                            Title = $"{options[i]}",
+                            Value = $"{options[i]}",
+                            Type = ActionTypes.ImBack
+                        });
+                    }
+
+                    // CardImage
+                    List<CardImage> cardImages = new List<CardImage>();
+                    cardImages.Add(new CardImage(url: "https://irp-cdn.multiscreensite.com/d0e68b97/dms3rep/multi/mobile/icon_002-300x300.png"));
+
+                    // Reply with thumbnail card
+                    replyToConversation.Attachments.Add(
+                         new ThumbnailCard
+                         {
+                             Title = $"Welcome to Cortoso Bank",
+                             Subtitle = "How can i help you?",
+                             Images = cardImages,
+                             Buttons = actions
+                         }.ToAttachment()
+                    );
+                    await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
+                    await connector.Conversations.SendToConversationAsync(replyToConversation);
                     return Request.CreateResponse(HttpStatusCode.OK);
 
                 }
@@ -134,8 +164,9 @@ namespace CortosoBank
                         cust.Balance = Double.Parse(newUserInformation[5].ToString());
 
                         await AzureManager.AzureManagerInstance.AddCustomer(cust);
-                        replyToUser = $" Welcome to Cortoso Bank! Your account has been successfully created. Your accountNo is {newAccountNo} with the balance of ${cust.Balance}.";
                         
+                        // ##  User Created Account ##
+
                         createAccount = false;
                         userData.SetProperty<bool>("userLoggedIn", true);
                         userData.SetProperty<bool>("createAccount", false);
@@ -144,12 +175,29 @@ namespace CortosoBank
                         userData.SetProperty<List<object>>("newUserInformation", newUserInformation);
                         await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
 
-                        await Conversation.SendAsync(activity, () => new TransactionDialog());
+                        // ##  Account created page ##
+                        Activity replyToConversation = activity.CreateReply(replyToUser);
+                        replyToConversation.Recipient = activity.From;
+                        replyToConversation.Type = "message";
+                        replyToConversation.Attachments = new List<Attachment>();
 
-                        /// return 
-                        Activity replyMessage2 = activity.CreateReply(replyToUser);
-                        await connector.Conversations.ReplyToActivityAsync(replyMessage2);
+                        // CardImage
+                        List<CardImage> cardImages = new List<CardImage>();
+                        cardImages.Add(new CardImage(url: "http://stock.wikimini.org/w/images/9/95/Gnome-stock_person-avatar-profile.png"));
+
+                        // Reply with Hero card
+                        replyToConversation.Attachments.Add(
+                             new HeroCard
+                             {
+                                 Title = "Your details",
+                                 Text = $"Account No: {cust.AccountNo}  \nBalance: {cust.Balance}",
+                                 Images = cardImages
+                             }.ToAttachment()
+                        );
+                        await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
+                        await connector.Conversations.SendToConversationAsync(replyToConversation);
                         return Request.CreateResponse(HttpStatusCode.OK);
+                        
 
                     }
                 }
@@ -199,19 +247,38 @@ namespace CortosoBank
                             string accountNo = await AzureManager.AzureManagerInstance.getAccountNo(userEmail, userPassword);
                             Customer cust = await AzureManager.AzureManagerInstance.getCustomerDetails(accountNo);
 
-                            replyToUser = $"Log in successfully. Hi {cust.FirstName} {cust.LastName}!";
-
+                            
                             userData.SetProperty<string>("userAccountNo", accountNo);
                             userData.SetProperty<Customer>("clientDetails", cust);
                             userData.SetProperty<bool>("userLoggedIn", true);
                             userData.SetProperty<bool>("userLogin", false);
                             userData.SetProperty<List<string>>("loginInformation", new List<string>());
                             await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
-                            await Conversation.SendAsync(activity, () => new TransactionDialog());
-                            
-                            /// return 
-                            Activity replyMessage2 = activity.CreateReply(replyToUser);
-                            await connector.Conversations.ReplyToActivityAsync(replyMessage2);
+
+                            replyToUser = $"Log in successfully";
+
+                            // ##  Account created page ##
+                            Activity replyToConversation = activity.CreateReply("");
+                            replyToConversation.Recipient = activity.From;
+                            replyToConversation.Type = "message";
+                            replyToConversation.Attachments = new List<Attachment>();
+
+                            // CardImage
+                            List<CardImage> cardImages = new List<CardImage>();
+                            cardImages.Add(new CardImage(url: "http://stock.wikimini.org/w/images/9/95/Gnome-stock_person-avatar-profile.png"));
+
+
+                            // Reply with Hero card
+                            replyToConversation.Attachments.Add(
+                                 new HeroCard
+                                 {
+                                     Title = "Welcome Back",
+                                     Text = $"Account No: {cust.AccountNo}  \nBalance: ${cust.Balance}",
+                                     Images = cardImages
+                                 }.ToAttachment()
+                            );
+                            await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
+                            await connector.Conversations.SendToConversationAsync(replyToConversation);
                             return Request.CreateResponse(HttpStatusCode.OK);
 
                         }
@@ -244,7 +311,7 @@ namespace CortosoBank
                     switch (luisIntentObject.topScoringIntent.intent)
                     {
                         case "getHelp":
-                            // ##  Introducting Page ##
+                            // ##  Introduction Page ##
                             Activity replyToConversation = activity.CreateReply();
                             replyToConversation.Recipient = activity.From;
                             replyToConversation.Type = "message";
@@ -323,7 +390,6 @@ namespace CortosoBank
                             // CardImage
                             List<CardImage> cardImages2 = new List<CardImage>();
                             cardImages2.Add(new CardImage(url: "https://irp-cdn.multiscreensite.com/d0e68b97/dms3rep/multi/mobile/icon_002-300x300.png"));
-
 
                             // Reply with thumbnail card
                             replyToConversation2.Attachments.Add(

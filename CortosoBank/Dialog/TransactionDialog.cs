@@ -11,7 +11,7 @@ namespace CortosoBank
     public class TransactionDialog : IDialog<object>
     {
 
-        public string[] options = new string[] { "withdraw", "deposit", "balance", "currency", "delete account"};
+        public string[] options = new string[] { "withdraw", "deposit", "balance", "currency", "delete account", "log out"};
 
         public async Task StartAsync(IDialogContext context)
         {
