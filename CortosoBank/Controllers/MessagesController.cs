@@ -105,7 +105,7 @@ namespace CortosoBank
                              Buttons = actions
                          }.ToAttachment()
                     );
-                    await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
+                    
                     await connector.Conversations.SendToConversationAsync(replyToConversation);
                     return Request.CreateResponse(HttpStatusCode.OK);
 
@@ -184,13 +184,25 @@ namespace CortosoBank
                         List<CardImage> cardImages = new List<CardImage>();
                         cardImages.Add(new CardImage(url: "http://stock.wikimini.org/w/images/9/95/Gnome-stock_person-avatar-profile.png"));
 
+
+                        // CardButtons
+                        var actions2 = new List<CardAction>();
+                        actions2.Add(new CardAction
+                        {
+                            Title = "Home",
+                            Value = "Help",
+                            Type = ActionTypes.ImBack
+                        });
+
+
                         // Reply with Hero card
                         replyToConversation.Attachments.Add(
                              new HeroCard
                              {
                                  Title = "Your details",
                                  Text = $"Account No: {cust.AccountNo}  \nBalance: ${string.Format("{0:0.00}", cust.Balance)}",
-                                 Images = cardImages
+                                 Images = cardImages,
+                                 Buttons = actions2
                              }.ToAttachment()
                         );
                         await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
@@ -264,13 +276,25 @@ namespace CortosoBank
                             cardImages.Add(new CardImage(url: "http://stock.wikimini.org/w/images/9/95/Gnome-stock_person-avatar-profile.png"));
 
 
+                            // CardButtons
+                            var actions2 = new List<CardAction>();
+                            actions2.Add(new CardAction
+                            {
+                                Title = "Home",
+                                Value = "Help",
+                                Type = ActionTypes.ImBack
+                            });
+
+                               
+
                             // Reply with Hero card
                             replyToConversation.Attachments.Add(
                                  new HeroCard
                                  {
                                      Title = "Welcome Back",
                                      Text = $"Account No: {cust.AccountNo}  \nBalance: ${string.Format("{0:0.00}", cust.Balance)}",
-                                     Images = cardImages
+                                     Images = cardImages,
+                                     Buttons = actions2
                                  }.ToAttachment()
                             );
                             await connector.Conversations.SendToConversationAsync(replyToConversation);
@@ -305,6 +329,10 @@ namespace CortosoBank
                     LuisIntentObject luisIntentObject = await GetEntityFromLUIS(userInput);
                     switch (luisIntentObject.topScoringIntent.intent)
                     {
+                        case "balance":
+                            replyToUser = "You haven't log in.";
+                            break; 
+             
                         case "getHelp":
                             // ##  Introduction Page ##
                             Activity replyToConversation = activity.CreateReply();
