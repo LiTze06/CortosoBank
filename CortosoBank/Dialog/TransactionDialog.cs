@@ -38,7 +38,7 @@ namespace CortosoBank
 
             // CardImage
             List<CardImage> cardImages = new List<CardImage>();
-            cardImages.Add(new CardImage(url: "https://irp-cdn.multiscreensite.com/d0e68b97/dms3rep/multi/mobile/icon_002-300x300.png"));
+            cardImages.Add(new CardImage(url: "https://cloud.githubusercontent.com/assets/20731546/20589442/69cc41da-b281-11e6-8617-6fdb7cc451cc.png"));
 
 
             // Add ThumbnailCard to reply
