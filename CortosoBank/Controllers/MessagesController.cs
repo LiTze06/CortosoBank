@@ -100,7 +100,7 @@ namespace CortosoBank
                          new ThumbnailCard
                          {
                              Title = $"Welcome to Cortoso Bank",
-                             Subtitle = "How can i help you?",
+                             Subtitle = "May i help you?",
                              Images = cardImages,
                              Buttons = actions
                          }.ToAttachment()
@@ -189,7 +189,7 @@ namespace CortosoBank
                              new HeroCard
                              {
                                  Title = "Your details",
-                                 Text = $"Account No: {cust.AccountNo}  \nBalance: {cust.Balance}",
+                                 Text = $"Account No: {cust.AccountNo}  \nBalance: ${string.Format("{0:0.00}", cust.Balance)}",
                                  Images = cardImages
                              }.ToAttachment()
                         );
@@ -269,7 +269,7 @@ namespace CortosoBank
                                  new HeroCard
                                  {
                                      Title = "Welcome Back",
-                                     Text = $"Account No: {cust.AccountNo}  \nBalance: ${cust.Balance}",
+                                     Text = $"Account No: {cust.AccountNo}  \nBalance: ${string.Format("{0:0.00}", cust.Balance)}",
                                      Images = cardImages
                                  }.ToAttachment()
                             );
@@ -334,7 +334,7 @@ namespace CortosoBank
                                  new ThumbnailCard
                                  {
                                      Title = $"Welcome to Cortoso Bank",
-                                     Subtitle = "How can i help you?",
+                                     Subtitle = "May i help you?",
                                      Images = cardImages,
                                      Buttons = actions
                                  }.ToAttachment()
@@ -391,7 +391,7 @@ namespace CortosoBank
                                  new ThumbnailCard
                                  {
                                      Title = $"Welcome to Cortoso Bank",
-                                     Subtitle = "How can i help you?",
+                                     Subtitle = "May i help you?",
                                      Images = cardImages2,
                                      Buttons = actions2
                                  }.ToAttachment()
@@ -420,12 +420,42 @@ namespace CortosoBank
                     userData.SetProperty<List<object>>("newUserInformation", new List<object>());
                     userData.SetProperty<List<string>>("loginInformation", new List<string>());
                     await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
-
                     replyToUser = "Your account has been successfully deleted.";
-                   
+
+                    // ##  Introduction Page ##
+                    Activity replyToConversation = activity.CreateReply(replyToUser);
+                    replyToConversation.Recipient = activity.From;
+                    replyToConversation.Type = "message";
+                    replyToConversation.Attachments = new List<Attachment>();
+
+                    // CardButtons
+                    var actions = new List<CardAction>();
+                    for (int i = 0; i < options.Length; i++)
+                    {
+                        actions.Add(new CardAction
+                        {
+                            Title = $"{options[i]}",
+                            Value = $"{options[i]}",
+                            Type = ActionTypes.ImBack
+                        });
+                    }
+
+                    // CardImage
+                    List<CardImage> cardImages = new List<CardImage>();
+                    cardImages.Add(new CardImage(url: "https://irp-cdn.multiscreensite.com/d0e68b97/dms3rep/multi/mobile/icon_002-300x300.png"));
+
+                    // Reply with thumbnail card
+                    replyToConversation.Attachments.Add(
+                         new ThumbnailCard
+                         {
+                             Title = $"Welcome to Cortoso Bank",
+                             Subtitle = "May i help you?",
+                             Images = cardImages,
+                             Buttons = actions
+                         }.ToAttachment()
+                    );
                     // return
-                    Activity replyDelMessage = activity.CreateReply(replyToUser);
-                    await connector.Conversations.ReplyToActivityAsync(replyDelMessage);
+                    await connector.Conversations.SendToConversationAsync(replyToConversation);
                     return Request.CreateResponse(HttpStatusCode.OK);
                 }
 
@@ -446,9 +476,6 @@ namespace CortosoBank
 
                         case "getHelp":
                             await Conversation.SendAsync(activity, () => new TransactionDialog());
-                            replyToUser = "Don't worry. I am here to help you";
-                            Activity replyMessage2 = activity.CreateReply(replyToUser);
-                            await connector.Conversations.ReplyToActivityAsync(replyMessage2);
                             return Request.CreateResponse(HttpStatusCode.OK);
                             
                         case "withdraw":
@@ -523,8 +550,6 @@ namespace CortosoBank
 
                         default:
                              await Conversation.SendAsync(activity, () => new TransactionDialog());
-                             replyToUser = $"Sorry, i am not getting you...";
-                             // return
                              Activity replyMessage3 = activity.CreateReply(replyToUser);
                              await connector.Conversations.ReplyToActivityAsync(replyMessage3);
                              return Request.CreateResponse(HttpStatusCode.OK);

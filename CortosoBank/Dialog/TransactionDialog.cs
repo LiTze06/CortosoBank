@@ -23,8 +23,7 @@ namespace CortosoBank
             var reply = context.MakeMessage();
             //reply.Text = string.Format("You said {0}", message.Text);
             reply.Attachments = new List<Attachment>();
-
-
+            
             // CardButtons
             var actions = new List<CardAction>();
             for (int i = 0; i < options.Length; i++)
