@@ -329,10 +329,7 @@ namespace CortosoBank
                     LuisIntentObject luisIntentObject = await GetEntityFromLUIS(userInput);
                     switch (luisIntentObject.topScoringIntent.intent)
                     {
-                        case "balance":
-                            replyToUser = "You haven't log in.";
-                            break; 
-             
+                      
                         case "getHelp":
                             // ##  Introduction Page ##
                             Activity replyToConversation = activity.CreateReply();
