@@ -41,7 +41,7 @@ namespace CortosoBank
             {
                 ConnectorClient connector = new ConnectorClient(new Uri(activity.ServiceUrl));
                 var userInput = activity.Text;
-                string replyToUser = $"Cortoso Bank";
+                string replyToUser = $"Welcome to Cortoso Bank";
 
 
                 /// ---  Store client information ----------------
